@@ -23,15 +23,49 @@ const createProductValidators = [
         .isLength({ max: 500 })
         .withMessage('description max length is 500 characters'),
     body('productAmount')
-        .notEmpty()
-        .withMessage('productAmount.amount is required')
-        .bail()
-        .isFloat({ gt: 0 })
-        .withMessage('productAmount.amount must be a number > 0'),
+        .custom((value, { req }) => {
+            const amountValue =
+                (typeof value === 'object' && value !== null ? value.amount : value) ??
+                req.body['productAmount.amount'] ??
+                req.body['productAmount[amount]'] ??
+                req.body?.priceAmount?.amount ??
+                req.body?.priceAmount ??
+                req.body['priceAmount.amount'] ??
+                req.body['priceAmount[amount]'];
+
+            if (amountValue === undefined || amountValue === null || amountValue === '') {
+                throw new Error('productAmount.amount is required');
+            }
+
+            if (Number.isNaN(Number(amountValue)) || Number(amountValue) <= 0) {
+                throw new Error('productAmount.amount must be a number > 0');
+            }
+
+            return true;
+        }),
     body('productAmount.currency')
         .optional()
-        .isIn([ 'USD', 'INR' ])
-        .withMessage('productAmount.currency must be USD or INR'),
+        .custom((value, { req }) => {
+            const currencyValue =
+                value ??
+                req.body['productAmount.currency'] ??
+                req.body['productAmount[currency]'] ??
+                req.body?.priceAmount?.currency ??
+                req.body['priceAmount.currency'] ??
+                req.body['priceAmount[currency]'] ??
+                req.body.productCurrency ??
+                req.body.priceCurrency;
+
+            if (currencyValue === undefined || currencyValue === null || currencyValue === '') {
+                return true;
+            }
+
+            if (![ 'USD', 'INR' ].includes(currencyValue)) {
+                throw new Error('productAmount.currency must be USD or INR');
+            }
+
+            return true;
+        }),
     handleValidationErrors
 ];
 
