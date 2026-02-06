@@ -42,38 +42,7 @@ const loginUserValidation = [
             .withMessage("Password must be at least 6 characters long"),
         respondWithValidationErrors
 ]
-
-const addUserAddressValidations = [
-    body("street")
-        .isString()
-        .withMessage("Street must be a string")
-        .notEmpty()
-        .withMessage("Street is required"),
-    body("city")
-        .isString()
-        .withMessage("City must be a string")
-        .notEmpty()
-        .withMessage("City is required"),
-    body("state")
-        .isString()
-        .withMessage("State must be a string")
-        .notEmpty()
-        .withMessage("State is required"),
-    body("postalCode")
-        .isString()
-        .withMessage("Postal code must be a string")
-        .notEmpty()
-        .withMessage("Postal code is required"),
-    body("country")
-        .isString()
-        .withMessage("Country must be a string")
-        .notEmpty()
-        .withMessage("Country is required"),
-    respondWithValidationErrors
-]
-
 module.exports = {
         registerUserValidation,
-        loginUserValidation,
-        addUserAddressValidations
+        loginUserValidation
 }
