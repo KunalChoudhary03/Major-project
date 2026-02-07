@@ -42,7 +42,50 @@ const loginUserValidation = [
             .withMessage("Password must be at least 6 characters long"),
         respondWithValidationErrors
 ]
+
+const addUserAddressValidations = [
+    body("street")
+        .trim()
+        .notEmpty()
+        .withMessage("Street is required")
+        .isString()
+        .withMessage("Street must be a string")
+        .escape(),
+    body("city")
+        .trim()
+        .notEmpty()
+        .withMessage("City is required")
+        .isString()
+        .withMessage("City must be a string")
+        .escape(),
+    body("state")
+        .trim()
+        .notEmpty()
+        .withMessage("State is required")
+        .isString()
+        .withMessage("State must be a string")
+        .escape(),
+    body("pincode")
+        .trim()
+        .notEmpty()
+        .withMessage("Pincode is required")
+        .matches(/^[0-9]{4,10}$/)
+        .withMessage("Invalid pincode format"),
+    body("country")
+        .trim()
+        .notEmpty()
+        .withMessage("Country is required")
+        .isString()
+        .withMessage("Country must be a string")
+        .escape(),
+    body("isDeafult")
+        .optional()
+        .isBoolean()
+        .withMessage("isDeafult must be a boolean"),
+    respondWithValidationErrors
+]
 module.exports = {
         registerUserValidation,
-        loginUserValidation
+        loginUserValidation,
+        addUserAddressValidations
 }
