@@ -1,8 +1,15 @@
 const request = require("supertest");
 const app = require("../src/app");
+const { getAuthCookie } = require("../src/utils/auth");
 
 describe("POST /api/orders", () => {
-  const authCookie = "accessToken=mock-jwt-token; Path=/; HttpOnly";
+  let authCookie;
+
+  beforeAll(() => {
+    process.env.JWT_SECRET = "test-secret";
+    process.env.JWT_COOKIE_NAME = "token";
+    authCookie = getAuthCookie({ extra: { role: "user" } });
+  });
 
   test("creates an order from current cart with pending status", async () => {
     const payload = {
