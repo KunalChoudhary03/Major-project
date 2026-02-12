@@ -237,7 +237,133 @@ async function createOrder(req, res) {
     }
 
 }
+async function getMyOrders(req, res) {
+    const user = req.user;
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    try{
+        const orders = await orderModel.find({ user: user.id }).sort({ createdAt: -1 }).skip(skip).limit(limit);
+        const totalOrders = await orderModel.countDocuments({ user: user.id });
+        res.json({
+            orders,
+            meta: {
+                total: totalOrders,
+                page,
+                limit,
+            }
+        })
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error", error: err.message });
+    }
+}
+async function getOrderById(req,res){
+  const user = req.user;
+  const orderId = req.params.id;
+  try{
+    const order = await orderModel.findById(orderId);
+    if(!order){
+        return res.status(404).json({message:"Order not found"})
+    }
+    if(order.user.toString() !== user.id && !user.role?.includes("admin")){
+        return res.status(403).json({message:"Forbidden"})
+    }
+
+    // Add timeline
+    const timeline = [
+      { status: "PENDING", timestamp: order.createdAt, message: "Order placed" },
+    ];
+    if (order.status === "CONFIRMED" || order.status === "SHIPPED" || order.status === "DELIVERED") {
+      timeline.push({ status: "CONFIRMED", timestamp: order.updatedAt, message: "Order confirmed" });
+    }
+    if (order.status === "SHIPPED" || order.status === "DELIVERED") {
+      timeline.push({ status: "SHIPPED", timestamp: order.updatedAt, message: "Order shipped" });
+    }
+    if (order.status === "DELIVERED") {
+      timeline.push({ status: "DELIVERED", timestamp: order.updatedAt, message: "Order delivered" });
+    }
+    if (order.status === "CANCELLED") {
+      timeline.push({ status: "CANCELLED", timestamp: order.updatedAt, message: "Order cancelled" });
+    }
+
+    // Add payment summary
+    const paymentSummary = {
+      subtotal: order.totalPrice,
+      tax: { amount: 0, currency: order.totalPrice.currency },
+      total: order.totalPrice,
+      status: order.status === "PENDING" ? "PENDING" : "PAID",
+    };
+
+    const orderResponse = order.toObject();
+    orderResponse.timeline = timeline;
+    orderResponse.paymentSummary = paymentSummary;
+
+    res.json({ order: orderResponse });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error", error: err.message });
+  }
+}
+async function cancelOrderById(req, res) {
+    const user = req.user;
+    const orderId = req.params.id;
+    try {
+        const order = await orderModel.findById(orderId);  
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }    
+        if(order.user.toString() !== user.id){
+            return res.status(403).json({message:"Forbidden"})
+        }
+        
+        // Only allow cancellation for PENDING or CONFIRMED status
+        if (!["PENDING", "CONFIRMED"].includes(order.status)) {
+            return res.status(409).json({ 
+                message: `Cannot cancel order with status ${order.status}. Only PENDING or CONFIRMED orders can be cancelled.` 
+            });
+        }
+        
+        order.status = "CANCELLED";
+        await order.save();
+        res.json({ message: "Order cancelled successfully", order });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error", error: err.message });
+    }    
+}
+
+async function updateOrderAddress(req, res) {
+    const user = req.user;
+    const orderId = req.params.id;
+    try {
+        const order = await orderModel.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+        if (order.user.toString() !== user.id) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+        
+        // Only allow address update for PENDING status (before payment capture)
+        if (order.status !== "PENDING") {
+            return res.status(409).json({ 
+                message: `Cannot update address for order with status ${order.status}. Address can only be updated for PENDING orders.` 
+            });
+        }
+        
+        order.shippingAddress = {
+            ...order.shippingAddress,
+            ...req.body.shippingAddress
+        };
+        await order.save();
+        res.json({ message: "Order address updated successfully", order });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error", error: err.message });
+    }
+}
 module.exports = {
     createOrder,
+    getMyOrders,
+    getOrderById,
+    cancelOrderById,
+    updateOrderAddress
 }

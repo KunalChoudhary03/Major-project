@@ -52,8 +52,43 @@ const createOrderValidation = [
         .withMessage("isDefault must be a boolean"),
     respondWithValidationErrors
 ]
-
+const updateAddressValidation = [
+    body("shippingAddress.street")
+        .optional()     
+        .isString()
+        .withMessage("Street must be a string")
+        .notEmpty()
+        .withMessage("Street cannot be empty"),
+    body("shippingAddress.city")
+        .optional()
+        .isString()
+        .withMessage("City must be a string")
+        .notEmpty()
+        .withMessage("City cannot be empty"),
+    body("shippingAddress.state")
+        .optional()
+        .isString()
+        .withMessage("State must be a string")
+        .notEmpty()
+        .withMessage("State cannot be empty"),
+    body("shippingAddress.pincode")
+        .optional()
+        .matches(/^[A-Za-z0-9]{4,10}$/)
+        .withMessage("Invalid pincode format"),
+    body("shippingAddress.country")
+        .optional()
+        .isString()
+        .withMessage("Country must be a string")
+        .notEmpty()
+        .withMessage("Country cannot be empty"),
+    body("shippingAddress.isDefault")
+        .optional()
+        .isBoolean()
+        .withMessage("isDefault must be a boolean"),
+    respondWithValidationErrors
+]
 module.exports = {
     createOrderValidation,
+    updateAddressValidation,
     respondWithValidationErrors
 }
