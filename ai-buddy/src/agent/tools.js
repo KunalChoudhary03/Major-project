@@ -28,6 +28,7 @@ const addProductToCart = tool(async ({productId,qty=1,token}) => {
             Authorization: `Bearer ${token}`
         }
     })
+   
     return JSON.stringify(response.data)
 },{
     name: "addProductToCart",
