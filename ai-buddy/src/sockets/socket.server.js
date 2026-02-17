@@ -7,66 +7,72 @@ const agent = require('../agent/agent');
 
 async function initSocketServer(httpServer) {
 
-    const io = new Server(httpServer, {})
+    // Use default path (/socket.io/) and permissive CORS so tools like Postman can connect
+    const io = new Server(httpServer, {
+        cors: {
+            origin: '*',
+            methods: ['GET', 'POST'],
+            allowedHeaders: ['Authorization'],
+            credentials: true,
+        },
+    })
 
+    // Accept JWT from cookie, Authorization header, handshake.auth, or query ?token=
     io.use((socket, next) => {
+        const hdrs = socket.handshake.headers || {}
+        const cookiesStr = hdrs.cookie
+        const parsedCookies = cookiesStr ? cookie.parse(cookiesStr) : {}
+        const cookieToken = parsedCookies.token
 
-        const cookies = socket.handshake.headers?.cookie;
+        const authHeader = hdrs.authorization || hdrs.Authorization
+        const headerToken = authHeader && authHeader.startsWith('Bearer ')
+            ? authHeader.slice('Bearer '.length).trim()
+            : null
 
-        const { token } = cookies ? cookie.parse(cookies) : {};
+        const authToken = socket.handshake.auth?.token
+        const queryToken = socket.handshake.query?.token
+
+        const token = cookieToken || headerToken || authToken || queryToken
 
         if (!token) {
-            return next(new Error('Token not provided'));
+            return next(new Error('Token not provided'))
         }
 
         try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-            socket.user = decoded;
-            socket.token = token;
-
-            next()
-
+            const decoded = jwt.verify(token, process.env.JWT_SECRET)
+            socket.user = decoded
+            socket.token = token
+            return next()
         } catch (err) {
-            next(new Error('Invalid token'));
+            return next(new Error('Invalid token'))
         }
-
     })
 
     io.on('connection', (socket) => {
 
-        console.log(socket.user, socket.token)
+        console.log('socket connected user:', socket.user)
 
 
         socket.on('message', async (data) => {
             try {
+                console.log('Received message from client:', data)
                 const agentResponse = await agent.invoke({
                     messages: [
-                        {
-                            role: "user",
-                            content: data
-                        }
+                        { role: 'user', content: data }
                     ]
                 }, {
-                    metadata: {
-                        token: socket.token
-                    }
+                    configurable: { token: socket.token }
                 })
 
-                const lastMessage = agentResponse?.messages?.at(-1)?.content
+                console.log('agentResponse', agentResponse)
 
-                if (lastMessage) {
-                    socket.emit('message', lastMessage)
-                } else {
-                    socket.emit('message', "I couldn't generate a response.")
-                }
+                const lastMessage = agentResponse.messages[agentResponse.messages.length - 1]
+
+
+                socket.emit('agent:response', lastMessage.content)
             } catch (err) {
-                if (err?.status === 429) {
-                    socket.emit('message', "AI quota exceeded. Please try again later.")
-                } else {
-                    socket.emit('message', "AI error occurred. Please try again.")
-                }
-                console.error('AI Error', err)
+                console.error('Agent handling error:', err)
+                socket.emit('assistant:error', { message: err?.message || 'Something went wrong.' })
             }
         })
 

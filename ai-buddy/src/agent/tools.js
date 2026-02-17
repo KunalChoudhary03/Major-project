@@ -6,7 +6,7 @@ const searchProduct = tool(async ({ query, token }) => {
 
     console.log("searchProduct called with data:", { query, token })
 
-    const response = await axios.get(`http://localhost:3001/api/products/search?q=${encodeURIComponent(query)}`, {
+    const response = await axios.get(`http://localhost:3001/api/products?q=${query}`, {
         headers: {
             Authorization: `Bearer ${token}`
         }
@@ -27,7 +27,7 @@ const searchProduct = tool(async ({ query, token }) => {
 const addProductToCart = tool(async ({ productId, qty = 1, token }) => {
 
 
-    const response = await axios.post(`http://localhost:3001/api/cart/items`, {
+    const response = await axios.post(`http://localhost:3002/api/cart/items`, {
         productId,
         qty
     }, {
@@ -36,7 +36,7 @@ const addProductToCart = tool(async ({ productId, qty = 1, token }) => {
         }
     })
 
-    return JSON.stringify(response.data)
+    return `Added product with id ${productId} (qty: ${qty}) to cart`
 
 
 }, {
