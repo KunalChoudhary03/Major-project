@@ -5,8 +5,9 @@ const tools = require("./tools")
 
 
 const model = new ChatGoogleGenerativeAI({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     temperature: 0.5,
+    apiKey: process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY,
 })
 
 
@@ -38,10 +39,17 @@ const graph = new StateGraph(MessagesAnnotation)
         return state
     })
     .addNode("chat", async (state, config) => {
-        const response = await model.invoke(state.messages, { tools: [ tools.searchProduct, tools.addProductToCart ] })
-
-
-        state.messages.push(new AIMessage({ content: response.text, tool_calls: response.tool_calls }))
+        try {
+            const response = await model.invoke(state.messages, { tools: [ tools.searchProduct, tools.addProductToCart ] })
+            state.messages.push(new AIMessage({ content: response.text, tool_calls: response.tool_calls }))
+        } catch (err) {
+            if (err?.status === 429) {
+                state.messages.push(new AIMessage({ content: "Gemini quota exceeded. Please wait or enable billing." }))
+            } else {
+                state.messages.push(new AIMessage({ content: "AI error occurred. Please try again." }))
+            }
+            console.error("AI invoke error:", err)
+        }
 
         return state
 
