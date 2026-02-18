@@ -37,7 +37,6 @@ const sendEmail = async (to, subject, text, html) => {
   } catch (error) {
     console.error('Error sending email:', error);
   }
-};
-sendEmail("kunalchoudharyhack@gmail.com", "Test Subject", "Test Text", "<p>Test HTML</p>");  
+}; 
 
 module.exports = sendEmail;
