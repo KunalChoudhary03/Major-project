@@ -1,6 +1,6 @@
 const paymentModel = require('../models/payment.model');
 const Razorpay = require('razorpay');
-
+const {publishToQueue} = require('../broker/broker');
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
@@ -28,6 +28,8 @@ async function createPayment(req, res) {
             }
           })
               await payment.save();
+
+             
           res.status(201).json({
             message: 'Payment initiated successfully',
             payment
@@ -35,6 +37,8 @@ async function createPayment(req, res) {
     }
     catch(err){
         console.log(err);
+
+        
         res.status(500).json({
             message: 'Internal Server Error',
             error: err.message
@@ -84,11 +88,24 @@ async function verifyPayment(req, res) {
 
             // Update without running validators to avoid Mongoose validation errors on incomplete docs
             await paymentModel.updateOne({ _id: payment._id }, { $set: update }, { runValidators: false });
-
+           
+             await publishToQueue("PAYMENT_NOTIFICATION.PAYMENT_COMPLETED", {
+                email: req.user.email,
+                orderId: orderId,
+                paymentId: payment.paymentId,
+                amount: payment.price.amount / 100,
+                currency: payment.price.currency
+              });
             const updated = await paymentModel.findById(payment._id).lean();
+            
             res.status(200).json({ message: 'Payment verified successfully', payment: updated });
      }catch(err){
         console.log(err);
+        await publishToQueue("PAYMENT_NOTIFICATION.PAYMENT_FAILED", {
+            email: req.user.email,
+            orderId: razorpayOrderId,
+            paymentId: paymentId,
+        });
         res.status(500).json({
             message: 'Internal Server Error',
             error: err.message
