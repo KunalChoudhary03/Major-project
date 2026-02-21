@@ -53,6 +53,7 @@ async function registerUser(req, res) {
         username: user.username,
         email: user.email,
         role: user.role,
+        fullName: user.fullName,
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
@@ -113,7 +114,10 @@ async function loginUser(req, res) {
     const accessToken = jwt.sign(
       {
         id: user._id,
+        username: user.username,
+        email: user.email,
         role: user.role,
+        fullName: user.fullName,
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" }

@@ -17,7 +17,10 @@ async function createPayment(req, res) {
         })
         const orderData = await orderResponse.json();
         const price  = orderData.order.totalPrice;
-          const order = await razorpay.orders.create(price);
+          const order = await razorpay.orders.create({
+            amount: Math.round(price * 100),
+            currency: 'INR'
+          });
           const payment = new paymentModel({
             order: orderId,
             razorpayOrderId: order.id,
@@ -68,6 +71,15 @@ async function verifyPayment(req, res) {
                 message: 'Payment not found ',
  })
 }
+            
+            // Debug: Log payment object
+            console.log('Payment Document:', {
+                orderId: payment.order,
+                userId: payment.user,
+                amount: payment.price?.amount,
+                reqUser: req.user
+            });
+
             // Use a valid enum value from schema ('SUCCESS') instead of 'COMPLETED'
             const update = {
                 status: 'SUCCESS',
@@ -89,12 +101,17 @@ async function verifyPayment(req, res) {
             // Update without running validators to avoid Mongoose validation errors on incomplete docs
             await paymentModel.updateOne({ _id: payment._id }, { $set: update }, { runValidators: false });
            
+            // Fetch user details from token (if not in req.user, use payment.user as fallback)
+            const userEmail = req.user?.email || `user_${payment.user}@cognibuy.com`;
+            const userFullName = req.user?.fullName || 'Customer';
+
              await publishToQueue("PAYMENT_NOTIFICATION.PAYMENT_COMPLETED", {
-                email: req.user.email,
-                orderId: orderId,
-                paymentId: payment.paymentId,
-                amount: payment.price.amount / 100,
-                currency: payment.price.currency
+                email: userEmail,
+                orderId: payment.order?.toString(),
+                paymentId: payment?.paymentId || paymentId,
+                amount: payment.price?.amount ? (payment.price.amount / 100) : 0,
+                currency: payment.price?.currency || 'INR',
+                fullName: userFullName
               });
             const updated = await paymentModel.findById(payment._id).lean();
             
@@ -102,8 +119,8 @@ async function verifyPayment(req, res) {
      }catch(err){
         console.log(err);
         await publishToQueue("PAYMENT_NOTIFICATION.PAYMENT_FAILED", {
-            email: req.user.email,
-            orderId: razorpayOrderId,
+            email: req.user?.email,
+            orderId: payment?.order,
             paymentId: paymentId,
         });
         res.status(500).json({
